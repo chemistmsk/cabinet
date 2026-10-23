@@ -285,6 +285,7 @@ function render(d){
   ${curHw?`<div class="card hwcard"><div class="info"><div class="sub">Домашнее задание · ${esc(String(curHw.date).slice(0,5))}</div><b>${esc(curHw.topic||"ДЗ")}</b></div>
     ${curHw.hwp.note?`<div class="note">${esc(curHw.hwp.note)}</div>`:""}
     ${curHw.hwp.links.length?`<div class="hwbtns">${curHw.hwp.links.map(k=>`<a class="hwbtn" href="${esc(k.url)}" data-link="${esc(k.url)}">${esc(k.label)}</a>`).join("")}</div>`:""}</div>`:""}
+  ${d.comment?`<div class="card"><h2>Комментарий преподавателя</h2><div class="comment">${esc(d.comment)}</div></div>`:""}
   <div class="card chart"><h2>Динамика пробников</h2><div class="sub">${unit} по пробникам</div>${chart(d.mocksList,d.goal,d.exam)}</div>
   <div class="card"><h2>Пробники</h2>
     <table><tr><th>Дата</th><th class="n">Перв.</th><th class="n">${ege?"Тест.":"Оценка"}</th></tr>
@@ -295,7 +296,6 @@ function render(d){
     <div class="seg"><button class="on" data-s="mocks">Пробники</button><button data-s="hw">Домашние задания</button></div>
     <div class="tasks" id="solvGrid">${tasks(solvM,d.maxes,d.passed)}</div>
   </div>
-  ${d.comment?`<div class="card"><h2>Комментарий преподавателя</h2><div class="comment">${esc(d.comment)}</div></div>`:""}
   <div class="card"><h2>Журнал занятий</h2><div id="jl">${jHtml(journalShown)}</div>
     ${d.journal.length>journalShown?`<button class="more" id="more">Показать все занятия (${d.journal.length})</button>`:""}</div>
   <div class="foot">${API_URL?`<a href="#" id="refresh">Обновить данные</a> · <a href="#" id="logout">Выйти / другой код</a>`:"Демо-режим: данные примера"}</div>`;
