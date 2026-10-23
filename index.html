@@ -73,6 +73,7 @@ td.big{font-weight:800;color:var(--main)}
 .tr{font-size:12px;font-weight:800;border-radius:10px;padding:1px 7px}
 .tr.up{background:var(--okbg);color:var(--ok)} .tr.down{background:var(--badbg);color:var(--bad)} .tr.flat{background:var(--grey);color:var(--muted)}
 .sec svg{width:100%;height:30px;display:block;margin-top:2px}
+.sec .cap{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3}
 .sec .none{font-size:12px;color:#A39BB5;margin-top:6px}
 </style>
 </head>
@@ -184,23 +185,39 @@ function trend(vals,what){
   if(Math.abs(dlt)<3) return `<span class="tr flat">≈ ${dlt>0?"+":""}${dlt}%</span>`;
   return dlt>0?`<span class="tr up">▲ +${dlt}%</span>`:`<span class="tr down">▼ ${dlt}%</span>`;
 }
+const pd=x=>{const [dd,mm,yy]=String(x||"").split(".");const t=new Date(+yy,+mm-1,+dd);return isNaN(t)?null:t};
+const DAY=864e5, HW_DAYS=30;
 function sectionsHtml(d){
   const cfg=SECTIONS[d.exam]; if(!cfg) return "";
   const passed=d.passed||[];
+  const dates=(d.journal||[]).map(l=>pd(l.date)).filter(Boolean);
+  const ref=API_URL?new Date():new Date(Math.max(...dates,0)); // в демо — от последней даты
   const cards=cfg.map(sec=>{
-    const ts=sec.tasks.filter(t=>passed.includes(t));
     const head=`<h3>${esc(sec.name)}</h3><div class="nums">задания ${ranges(sec.tasks)}</div>`;
-    if(!ts.length) return `<div class="sec">${head}<div class="none">Раздел ещё не проходили</div></div>`;
-    const mx=ts.reduce((a,t)=>a+d.maxes[t-1],0);
-    const mv=(d.mocksList||[]).filter(m=>m.scores).map(m=>ts.reduce((a,t)=>a+(+m.scores[t-1]||0),0)/mx);
-    const by={};
-    (d.journal||[]).forEach(l=>(l.practice||[]).forEach(p=>{if(!ts.includes(p.n)||!p.total)return;
-      const [dd,mm,yy]=String(l.date).split(".");const k=yy+"-"+mm;(by[k]=by[k]||{ok:0,t:0});by[k].ok+=+p.ok;by[k].t+=+p.total;}));
-    const hv=Object.keys(by).sort().map(k=>by[k].ok/by[k].t);
-    const row=(lbl,v,sub)=>`<div class="row"><div class="lbl">${lbl}</div>`+(v.length?`<div class="val"><b>${Math.round(v.at(-1)*100)}%</b>${trend(v)}</div>${spark(v)}`:`<div class="none">${sub}</div>`)+`</div>`;
-    return `<div class="sec">${head}${row("Пробники",mv,"пробников пока нет")}${row("ДЗ по месяцам",hv,"заданий в ДЗ пока нет")}</div>`;
+    // Пробники: только пройденные (✓) задания раздела
+    const ts=sec.tasks.filter(t=>passed.includes(t));
+    let mockRow;
+    const mocks=(d.mocksList||[]).filter(m=>m.scores);
+    if(!ts.length) mockRow=`<div class="none">раздел ещё не проходили</div>`;
+    else if(!mocks.length) mockRow=`<div class="none">пробников пока нет</div>`;
+    else{
+      const mx=ts.reduce((a,t)=>a+d.maxes[t-1],0);
+      const mv=mocks.map(m=>ts.reduce((a,t)=>a+(+m.scores[t-1]||0),0)/mx);
+      const cov=ts.length===sec.tasks.length?"все задания раздела":`по № ${ranges(ts)} (${ts.length} из ${sec.tasks.length})`;
+      mockRow=`<div class="val"><b>${Math.round(mv.at(-1)*100)}%</b>${trend(mv)}</div>${spark(mv)}<div class="cap">${cov}</div>`;
+    }
+    // ДЗ: все задания раздела, которые были в ДЗ за последние 30 дней (и предыдущие 30 — для стрелки)
+    const win=(from,to)=>{let ok=0,t=0;const ns=new Set();
+      (d.journal||[]).forEach(l=>{const dt=pd(l.date);if(!dt||dt<=from||dt>to)return;
+        (l.practice||[]).forEach(p=>{if(!sec.tasks.includes(+p.n)||!(+p.total))return;ok+=+p.ok;t+=+p.total;ns.add(+p.n);});});
+      return {v:t?ok/t:null,ns:[...ns].sort((a,b)=>a-b)};};
+    const cur=win(new Date(ref-HW_DAYS*DAY),ref), prev=win(new Date(ref-2*HW_DAYS*DAY),new Date(ref-HW_DAYS*DAY));
+    const hwRow=cur.v==null?`<div class="none">за ${HW_DAYS} дней в ДЗ не было</div>`:
+      `<div class="val"><b>${Math.round(cur.v*100)}%</b>${prev.v==null?"":trend([prev.v,cur.v])}</div><div class="cap">решали № ${ranges(cur.ns)}</div>`;
+    return `<div class="sec">${head}<div class="row"><div class="lbl">Пробники</div>${mockRow}</div><div class="row"><div class="lbl">ДЗ за ${HW_DAYS} дней</div>${hwRow}</div></div>`;
   }).join("");
-  return `<div class="card"><h2>Освоение разделов</h2><div class="sub">% от максимума по пройденным заданиям раздела. Стрелка — изменение к прошлому пробнику и к прошлому месяцу ДЗ</div>
+  return `<div class="card"><h2>Освоение разделов</h2>
+    <div class="sub"><b>Пробники</b> — сколько % баллов набрано за задания раздела в последнем пробнике (считаются только пройденные темы), график — по всем пробникам.<br><b>ДЗ</b> — % верно решённого по разделу в домашках за последние ${HW_DAYS} дней. Стрелка — изменение к прошлому пробнику / к предыдущим ${HW_DAYS} дням.</div>
     <svg width="0" height="0" style="position:absolute"><defs><linearGradient id="ln2" gradientUnits="userSpaceOnUse" x1="0" x2="160" y1="0" y2="0"><stop offset="0" stop-color="#8153EC"/><stop offset="1" stop-color="#C653EC"/></linearGradient></defs></svg>
     <div class="secs">${cards}</div></div>`;
 }
@@ -221,6 +238,9 @@ function render(d){
   const plural=(n,a,b,c)=>{n=Math.abs(n)%100;const n1=n%10;return n>10&&n<20?c:n1>1&&n1<5?b:n1===1?a:c};
   const sign=v=>v===""||v==null?"—":(v>0?"+":"")+v;
   let journalShown=8;
+  const firstMock=(d.mocksList||[]).length?d.mocksList[0].date:"";
+  const jd=(d.journal||[]).filter(l=>pd(l.date)).sort((a,b)=>pd(a.date)-pd(b.date));
+  const firstLesson=jd.length?jd[0].date:"";
   const jHtml=n=>d.journal.slice(0,n).map(l=>`<div class="lesson"><div class="d">${esc(String(l.date).slice(0,5))}</div><div class="tt">${esc(l.topic)}
       <div class="pills">${pill(l.att)}${l.hw&&l.hw!=="Не задано"?pill(l.hw,"ДЗ: "):""}${l.hwPct!==""&&l.hwPct!=null?`<span class="pill p-grey">${pct(l.hwPct)}</span>`:""}</div>
       ${(l.practice||[]).length?`<div class="pills">${l.practice.map(p=>`<span class="pill p-prac">ДЗ №${p.n}: ${p.ok}/${p.total}</span>`).join("")}</div>`:""}</div></div>`).join("");
@@ -231,12 +251,12 @@ function render(d){
     <span class="tag">Цель: ${esc(d.goal)}${ege?" баллов":""}</span>
   </div>
   <div class="kpis">
-    <div class="kpi accent"><b>${m.last===""?"—":m.last}</b><span>последний результат${ege?"":" · оценка "+(m.grade||"—")}</span></div>
-    <div class="kpi"><b>${sign(m.growth)}<small> ${m.growth===""||m.growth==null?"":plural(m.growth,"балл","балла","баллов")}</small></b><span>рост от старта</span></div>
-    <div class="kpi"><b>${m.lessons}</b><span>занятий проведено${m.missed?` · пропусков ${m.missed}`:""}</span></div>
-    <div class="kpi"><b>${pct(m.hwRate)}</b><span>ДЗ сдано · средний балл ${pct(m.hwAvg)}</span></div>
+    <div class="kpi accent"><b>${m.last===""?"—":m.last}<small>${m.last===""?"":" "+plural(m.last,"балл","балла","баллов")}</small></b><span>последний результат${ege?"":" · оценка "+(m.grade||"—")}</span></div>
+    <div class="kpi"><b>${sign(m.growth)}<small> ${m.growth===""||m.growth==null?"":plural(m.growth,"балл","балла","баллов")}</small></b><span>рост от ${esc(firstMock||"старта")}</span></div>
+    <div class="kpi"><b>${m.lessons}</b><span>занятий проведено${firstLesson?" с "+esc(firstLesson):""}${m.missed?` · пропусков ${m.missed}`:""}</span></div>
+    <div class="kpi"><b>${pct(m.hwAvg)}</b><span>средний % выполнения ДЗ</span></div>
   </div>
-  <div class="card chart"><h2>Динамика результатов</h2><div class="sub">${unit} по пробникам</div>${chart(d.mocksList,d.goal,d.exam)}</div>
+  <div class="card chart"><h2>Динамика пробников</h2><div class="sub">${unit} по пробникам</div>${chart(d.mocksList,d.goal,d.exam)}</div>
   ${sectionsHtml(d)}
   <div class="card"><h2>Пробники</h2>
     <table><tr><th>Работа</th><th>Дата</th><th class="n">Перв.</th><th class="n">${ege?"Тест.":"Оценка"}</th></tr>
@@ -250,13 +270,14 @@ function render(d){
   ${d.comment?`<div class="card"><h2>Комментарий преподавателя</h2><div class="comment">${esc(d.comment)}</div></div>`:""}
   <div class="card"><h2>Журнал занятий</h2><div id="jl">${jHtml(journalShown)}</div>
     ${d.journal.length>journalShown?`<button class="more" id="more">Показать все занятия (${d.journal.length})</button>`:""}</div>
-  <div class="foot">${API_URL?`<a href="#" id="logout">Выйти / другой код</a>`:"Демо-режим: данные примера"}</div>`;
+  <div class="foot">${API_URL?`<a href="#" id="refresh">Обновить данные</a> · <a href="#" id="logout">Выйти / другой код</a>`:"Демо-режим: данные примера"}</div>`;
   document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
     document.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x===b));
     const les=b.dataset.s==="hw";
     $("#solvGrid").innerHTML=tasks(les?(d.solvHw||[]):d.solv,d.maxes,d.passed);
     $("#solvSub").textContent=les?"% верно решённых задач каждого номера в домашних заданиях":"средний % от максимума по всем пробникам";});
   const mb=$("#more"); if(mb) mb.onclick=()=>{$("#jl").innerHTML=jHtml(999);mb.remove();};
+  const rf=$("#refresh"); if(rf) rf.onclick=e=>{e.preventDefault();const c=store.get();if(c)load(c);};
   const lo=$("#logout"); if(lo) lo.onclick=e=>{e.preventDefault();store.del();location.reload();};
   $("#login").classList.add("hidden"); $("#app").classList.remove("hidden");
 }
@@ -264,7 +285,7 @@ function render(d){
 async function load(code){
   $("#err").textContent="Загружаю…";
   try{
-    const r=await fetch(API_URL+"?code="+encodeURIComponent(code));
+    const r=await fetch(API_URL+"?code="+encodeURIComponent(code)+"&t="+Date.now(),{cache:"no-store"});
     const d=await r.json();
     if(d.error){$("#err").textContent="Код не найден. Проверьте и попробуйте ещё раз.";store.del();showLogin();return;}
     store.set(code); render(d);
