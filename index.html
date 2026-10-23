@@ -238,6 +238,14 @@ function render(d){
   const plural=(n,a,b,c)=>{n=Math.abs(n)%100;const n1=n%10;return n>10&&n<20?c:n1>1&&n1<5?b:n1===1?a:c};
   const sign=v=>v===""||v==null?"—":(v>0?"+":"")+v;
   let journalShown=8;
+  const last3=(d.mocksList||[]).filter(m=>m.scores).slice(-3);
+  const jds=(d.journal||[]).map(l=>pd(l.date)).filter(Boolean);
+  const refD=API_URL?new Date():new Date(Math.max(...jds,0)), fromD=new Date(refD-HW_DAYS*DAY);
+  const agg=d.maxes.map(()=>({ok:0,t:0}));
+  (d.journal||[]).forEach(l=>{const dt=pd(l.date);if(!dt||dt<=fromD||dt>refD)return;
+    (l.practice||[]).forEach(p=>{const i=+p.n-1;if(agg[i]&&+p.total){agg[i].ok+=+p.ok;agg[i].t+=+p.total;}});});
+  const solvH=agg.map(a=>a.t?a.ok/a.t:"");
+  const solvM=last3.length?d.maxes.map((mx,i)=>last3.reduce((a,m)=>a+(+m.scores[i]||0),0)/(last3.length*mx)):d.solv;
   const firstMock=(d.mocksList||[]).length?d.mocksList[0].date:"";
   const jd=(d.journal||[]).filter(l=>pd(l.date)).sort((a,b)=>pd(a.date)-pd(b.date));
   const firstLesson=jd.length?jd[0].date:"";
@@ -261,9 +269,9 @@ function render(d){
     ${d.mocksList.slice().reverse().map(x=>`<tr><td><b>${esc(x.date)}</b></td><td class="n">${x.primary}</td><td class="n big">${x.result}</td></tr>`).join("")}</table>
   </div>
   ${sectionsHtml(d)}
-  <div class="card"><h2>Решаемость по заданиям</h2><div class="sub" id="solvSub">средний % от максимума по всем пробникам</div>
+  <div class="card"><h2>Решаемость по заданиям</h2><div class="sub" id="solvSub">средний % от максимума по последним 3 пробникам</div>
     <div class="seg"><button class="on" data-s="mocks">Пробники</button><button data-s="hw">Домашние задания</button></div>
-    <div class="tasks" id="solvGrid">${tasks(d.solv,d.maxes,d.passed)}</div>
+    <div class="tasks" id="solvGrid">${tasks(solvM,d.maxes,d.passed)}</div>
   </div>
   ${d.comment?`<div class="card"><h2>Комментарий преподавателя</h2><div class="comment">${esc(d.comment)}</div></div>`:""}
   <div class="card"><h2>Журнал занятий</h2><div id="jl">${jHtml(journalShown)}</div>
@@ -272,8 +280,8 @@ function render(d){
   document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
     document.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x===b));
     const les=b.dataset.s==="hw";
-    $("#solvGrid").innerHTML=tasks(les?(d.solvHw||[]):d.solv,d.maxes,d.passed);
-    $("#solvSub").textContent=les?"% верно решённых задач каждого номера в домашних заданиях":"средний % от максимума по всем пробникам";});
+    $("#solvGrid").innerHTML=tasks(les?solvH:solvM,d.maxes,d.passed);
+    $("#solvSub").textContent=les?`% верно решённых задач каждого номера в ДЗ за последние ${HW_DAYS} дней`:"средний % от максимума по последним 3 пробникам";});
   const mb=$("#more"); if(mb) mb.onclick=()=>{$("#jl").innerHTML=jHtml(999);mb.remove();};
   const rf=$("#refresh"); if(rf) rf.onclick=e=>{e.preventDefault();const c=store.get();if(c)load(c);};
   const lo=$("#logout"); if(lo) lo.onclick=e=>{e.preventDefault();store.del();location.reload();};
