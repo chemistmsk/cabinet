@@ -227,7 +227,7 @@ function tasks(solv,maxes,passed){
     if(passed && !passed.includes(i+1)) return `<div class="t" style="background:#F4F1FA;color:#A39BB5"><i>№${i+1}</i><b style="font-size:11px">не прох.</b></div>`;
     if(v===""||v==null) return `<div class="t" style="background:#F4F1FA"><i>№${i+1}</i><b>—</b></div>`;
     let bg,fg;
-    if(v<0.4){bg="var(--badbg)";fg="var(--bad)"} else if(v<0.7){bg="var(--midbg)";fg="var(--mid)"} else {bg=`rgba(129,83,236,${0.15+0.25*v})`;fg="#5A2FC4"}
+    if(v<0.745){bg="var(--badbg)";fg="var(--bad)"} else if(v<0.895){bg="var(--midbg)";fg="var(--mid)"} else {bg="var(--okbg)";fg="var(--ok)"}
     return `<div class="t" style="background:${bg};color:${fg}"><i>№${i+1}</i><b>${Math.round(v*100)}%</b></div>`;
   }).join("");
 }
@@ -264,7 +264,6 @@ function render(d){
   <div class="card"><h2>Решаемость по заданиям</h2><div class="sub" id="solvSub">средний % от максимума по всем пробникам</div>
     <div class="seg"><button class="on" data-s="mocks">Пробники</button><button data-s="hw">Домашние задания</button></div>
     <div class="tasks" id="solvGrid">${tasks(d.solv,d.maxes,d.passed)}</div>
-    <div class="legend"><span style="--c:var(--badbg)">до 40% — в работе</span><span style="--c:var(--midbg)">40–69%</span><span style="--c:rgba(129,83,236,.35)">70%+ — уверенно</span><span style="--c:#F4F1FA">ещё не проходили</span></div>
   </div>
   ${d.comment?`<div class="card"><h2>Комментарий преподавателя</h2><div class="comment">${esc(d.comment)}</div></div>`:""}
   <div class="card"><h2>Журнал занятий</h2><div id="jl">${jHtml(journalShown)}</div>
