@@ -60,6 +60,11 @@ td.big{font-weight:800;color:var(--main)}
 .foot{text-align:center;color:var(--muted);font-size:12px;margin:18px 0 6px}
 .foot a{color:var(--main)}
 .hidden{display:none}
+.hwcard{display:flex;align-items:center;gap:12px}
+.hwcard .info{flex:1;min-width:0}
+.hwcard .info b{display:block;font-size:15px;margin-top:2px}
+.hwbtn{flex:none;border:0;border-radius:12px;padding:11px 16px;background:linear-gradient(135deg,var(--main),var(--second));color:#fff;font-weight:800;font-size:14px;text-decoration:none}
+.pill.p-link{background:#F3EAFD;color:var(--main);text-decoration:none}
 .secs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .sec{background:var(--bg);border-radius:14px;padding:12px 10px}
 .sec:last-child:nth-child(odd){grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;column-gap:14px}
@@ -110,8 +115,8 @@ const DEMO = {
     {date:"02.11.2026",title:"Пробник 3",primary:33,result:65},
     {date:"23.11.2026",title:"Пробник 4",primary:38,result:71}],
   journal:[
-    {date:"30.11.2026",topic:"Задача 31: электролиз растворов",att:"Проведено",hw:"Задано",hwPct:"",practice:[{n:31,ok:2,total:4}]},
-    {date:"26.11.2026",topic:"Органика: задание 32, цепочки",att:"Проведено",hw:"Выполнено",hwPct:0.9,practice:[{n:32,ok:3,total:5},{n:31,ok:1,total:3}]},
+    {date:"30.11.2026",topic:"Задача 31: электролиз растворов",att:"Проведено",hw:"Задано",hwPct:"",hwLink:"https://miro.com/",practice:[{n:31,ok:2,total:4}]},
+    {date:"26.11.2026",topic:"Органика: задание 32, цепочки",att:"Проведено",hw:"Выполнено",hwPct:0.9,hwLink:"https://miro.com/",practice:[{n:32,ok:3,total:5},{n:31,ok:1,total:3}]},
     {date:"23.11.2026",topic:"Пробник 4 — разбор",att:"Проведено",hw:"Выполнено",hwPct:0.85},
     {date:"19.11.2026",topic:"Гидролиз и электролиз",att:"Пропуск",hw:"Не задано",hwPct:""},
     {date:"16.11.2026",topic:"ОВР, задание 29",att:"Проведено",hw:"Частично",hwPct:0.55,practice:[{n:29,ok:4,total:6},{n:28,ok:3,total:4},{n:27,ok:4,total:5}]},
@@ -238,6 +243,7 @@ function render(d){
   const plural=(n,a,b,c)=>{n=Math.abs(n)%100;const n1=n%10;return n>10&&n<20?c:n1>1&&n1<5?b:n1===1?a:c};
   const sign=v=>v===""||v==null?"—":(v>0?"+":"")+v;
   let journalShown=8;
+  const curHw=(d.journal||[]).filter(l=>l.hwLink&&pd(l.date)).sort((a,b)=>pd(b.date)-pd(a.date))[0];
   const last3=(d.mocksList||[]).filter(m=>m.scores).slice(-3);
   const jds=(d.journal||[]).map(l=>pd(l.date)).filter(Boolean);
   const refD=API_URL?new Date():new Date(Math.max(...jds,0)), fromD=new Date(refD-HW_DAYS*DAY);
@@ -250,7 +256,7 @@ function render(d){
   const jd=(d.journal||[]).filter(l=>pd(l.date)).sort((a,b)=>pd(a.date)-pd(b.date));
   const firstLesson=jd.length?jd[0].date:"";
   const jHtml=n=>d.journal.slice(0,n).map(l=>`<div class="lesson"><div class="d">${esc(String(l.date).slice(0,5))}</div><div class="tt">${esc(l.topic)}
-      ${l.hwPct!==""&&l.hwPct!=null?`<div class="pills"><span class="pill ${l.hwPct>=0.895?"p-ok":l.hwPct>=0.745?"p-mid":"p-bad"}">ДЗ ${pct(l.hwPct)}</span></div>`:""}</div></div>`).join("");
+      ${(l.hwPct!==""&&l.hwPct!=null)||l.hwLink?`<div class="pills">${l.hwPct!==""&&l.hwPct!=null?`<span class="pill ${l.hwPct>=0.895?"p-ok":l.hwPct>=0.745?"p-mid":"p-bad"}">ДЗ ${pct(l.hwPct)}</span>`:""}${l.hwLink?`<a class="pill p-link" href="${esc(l.hwLink)}" data-link="${esc(l.hwLink)}">ДЗ →</a>`:""}</div>`:""}</div></div>`).join("");
   $("#app").innerHTML=`
   <div class="card head">
     <div class="sub">${esc(d.exam)} · химия</div>
@@ -263,6 +269,7 @@ function render(d){
     <div class="kpi"><b>${m.lessons}</b><span>занятий проведено${firstLesson?" с "+esc(firstLesson):""}${m.missed?` · пропусков ${m.missed}`:""}</span></div>
     <div class="kpi"><b>${pct(m.hwAvg)}</b><span>средний % выполнения ДЗ</span></div>
   </div>
+  ${curHw?`<div class="card hwcard"><div class="info"><div class="sub">Домашнее задание · ${esc(String(curHw.date).slice(0,5))}</div><b>${esc(curHw.topic||"ДЗ")}</b></div><a class="hwbtn" href="${esc(curHw.hwLink)}" data-link="${esc(curHw.hwLink)}">Открыть ДЗ</a></div>`:""}
   <div class="card chart"><h2>Динамика пробников</h2><div class="sub">${unit} по пробникам</div>${chart(d.mocksList,d.goal,d.exam)}</div>
   <div class="card"><h2>Пробники</h2>
     <table><tr><th>Дата</th><th class="n">Перв.</th><th class="n">${ege?"Тест.":"Оценка"}</th></tr>
@@ -282,6 +289,8 @@ function render(d){
     const les=b.dataset.s==="hw";
     $("#solvGrid").innerHTML=tasks(les?solvH:solvM,d.maxes,d.passed);
     $("#solvSub").textContent=les?`% верно решённых задач каждого номера в ДЗ за последние ${HW_DAYS} дней`:"средний % от максимума по последним 3 пробникам";});
+  document.getElementById("app").onclick=e=>{const a=e.target.closest("[data-link]");if(!a)return;e.preventDefault();
+    const u=a.dataset.link;try{if(tg&&tg.openLink){tg.openLink(u);return;}}catch(_){}window.open(u,"_blank");};
   const mb=$("#more"); if(mb) mb.onclick=()=>{$("#jl").innerHTML=jHtml(999);mb.remove();};
   const rf=$("#refresh"); if(rf) rf.onclick=e=>{e.preventDefault();const c=store.get();if(c)load(c);};
   const lo=$("#logout"); if(lo) lo.onclick=e=>{e.preventDefault();store.del();location.reload();};
