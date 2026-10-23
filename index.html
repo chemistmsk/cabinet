@@ -204,7 +204,7 @@ function sectionsHtml(d){
       const mx=ts.reduce((a,t)=>a+d.maxes[t-1],0);
       const mv=mocks.map(m=>ts.reduce((a,t)=>a+(+m.scores[t-1]||0),0)/mx);
       const cov=ts.length===sec.tasks.length?"все задания раздела":`по № ${ranges(ts)} (${ts.length} из ${sec.tasks.length})`;
-      mockRow=`<div class="val"><b>${Math.round(mv.at(-1)*100)}%</b>${trend(mv)}</div>${spark(mv)}<div class="cap">${cov}</div>`;
+      mockRow=`<div class="val"><b>${Math.round(mv.at(-1)*100)}%</b>${trend(mv)}</div>${spark(mv)}`;
     }
     // ДЗ: все задания раздела, которые были в ДЗ за последние 30 дней (и предыдущие 30 — для стрелки)
     const win=(from,to)=>{let ok=0,t=0;const ns=new Set();
@@ -212,12 +212,12 @@ function sectionsHtml(d){
         (l.practice||[]).forEach(p=>{if(!sec.tasks.includes(+p.n)||!(+p.total))return;ok+=+p.ok;t+=+p.total;ns.add(+p.n);});});
       return {v:t?ok/t:null,ns:[...ns].sort((a,b)=>a-b)};};
     const cur=win(new Date(ref-HW_DAYS*DAY),ref), prev=win(new Date(ref-2*HW_DAYS*DAY),new Date(ref-HW_DAYS*DAY));
-    const hwRow=cur.v==null?`<div class="none">за ${HW_DAYS} дней в ДЗ не было</div>`:
-      `<div class="val"><b>${Math.round(cur.v*100)}%</b>${prev.v==null?"":trend([prev.v,cur.v])}</div><div class="cap">решали № ${ranges(cur.ns)}</div>`;
+    const hwRow=cur.v==null?`<div class="none">не было в ДЗ</div>`:
+      `<div class="val"><b>${Math.round(cur.v*100)}%</b>${prev.v==null?"":trend([prev.v,cur.v])}</div>`;
     return `<div class="sec">${head}<div class="row"><div class="lbl">Пробники</div>${mockRow}</div><div class="row"><div class="lbl">ДЗ за ${HW_DAYS} дней</div>${hwRow}</div></div>`;
   }).join("");
   return `<div class="card"><h2>Освоение разделов</h2>
-    <div class="sub"><b>Пробники</b> — сколько % баллов набрано за задания раздела в последнем пробнике (считаются только пройденные темы), график — по всем пробникам.<br><b>ДЗ</b> — % верно решённого по разделу в домашках за последние ${HW_DAYS} дней. Стрелка — изменение к прошлому пробнику / к предыдущим ${HW_DAYS} дням.</div>
+    <div class="sub">% — решаемость в последнем пробнике и в ДЗ за ${HW_DAYS} дней, график — динамика по пробникам</div>
     <svg width="0" height="0" style="position:absolute"><defs><linearGradient id="ln2" gradientUnits="userSpaceOnUse" x1="0" x2="160" y1="0" y2="0"><stop offset="0" stop-color="#8153EC"/><stop offset="1" stop-color="#C653EC"/></linearGradient></defs></svg>
     <div class="secs">${cards}</div></div>`;
 }
@@ -242,8 +242,7 @@ function render(d){
   const jd=(d.journal||[]).filter(l=>pd(l.date)).sort((a,b)=>pd(a.date)-pd(b.date));
   const firstLesson=jd.length?jd[0].date:"";
   const jHtml=n=>d.journal.slice(0,n).map(l=>`<div class="lesson"><div class="d">${esc(String(l.date).slice(0,5))}</div><div class="tt">${esc(l.topic)}
-      <div class="pills">${pill(l.att)}${l.hw&&l.hw!=="Не задано"?pill(l.hw,"ДЗ: "):""}${l.hwPct!==""&&l.hwPct!=null?`<span class="pill p-grey">${pct(l.hwPct)}</span>`:""}</div>
-      ${(l.practice||[]).length?`<div class="pills">${l.practice.map(p=>`<span class="pill p-prac">ДЗ №${p.n}: ${p.ok}/${p.total}</span>`).join("")}</div>`:""}</div></div>`).join("");
+      ${l.hwPct!==""&&l.hwPct!=null?`<div class="pills"><span class="pill ${l.hwPct>=0.895?"p-ok":l.hwPct>=0.745?"p-mid":"p-bad"}">ДЗ ${pct(l.hwPct)}</span></div>`:""}</div></div>`).join("");
   $("#app").innerHTML=`
   <div class="card head">
     <div class="sub">${esc(d.exam)} · химия</div>
@@ -257,11 +256,11 @@ function render(d){
     <div class="kpi"><b>${pct(m.hwAvg)}</b><span>средний % выполнения ДЗ</span></div>
   </div>
   <div class="card chart"><h2>Динамика пробников</h2><div class="sub">${unit} по пробникам</div>${chart(d.mocksList,d.goal,d.exam)}</div>
-  ${sectionsHtml(d)}
   <div class="card"><h2>Пробники</h2>
-    <table><tr><th>Работа</th><th>Дата</th><th class="n">Перв.</th><th class="n">${ege?"Тест.":"Оценка"}</th></tr>
-    ${d.mocksList.slice().reverse().map(x=>`<tr><td><b>${esc(x.title)}</b></td><td>${esc(x.date)}</td><td class="n">${x.primary}</td><td class="n big">${x.result}</td></tr>`).join("")}</table>
+    <table><tr><th>Дата</th><th class="n">Перв.</th><th class="n">${ege?"Тест.":"Оценка"}</th></tr>
+    ${d.mocksList.slice().reverse().map(x=>`<tr><td><b>${esc(x.date)}</b></td><td class="n">${x.primary}</td><td class="n big">${x.result}</td></tr>`).join("")}</table>
   </div>
+  ${sectionsHtml(d)}
   <div class="card"><h2>Решаемость по заданиям</h2><div class="sub" id="solvSub">средний % от максимума по всем пробникам</div>
     <div class="seg"><button class="on" data-s="mocks">Пробники</button><button data-s="hw">Домашние задания</button></div>
     <div class="tasks" id="solvGrid">${tasks(d.solv,d.maxes,d.passed)}</div>
