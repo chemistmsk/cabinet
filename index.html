@@ -236,10 +236,10 @@ function sectionsHtml(d){
     const cur=win(new Date(ref-HW_DAYS*DAY),ref), prev=win(new Date(ref-2*HW_DAYS*DAY),new Date(ref-HW_DAYS*DAY));
     const hwRow=cur.v==null?`<div class="none">не было в ДЗ</div>`:
       `<div class="val"><b>${Math.round(cur.v*100)}%</b>${prev.v==null?"":trend([prev.v,cur.v])}</div>`;
-    return `<div class="sec">${head}<div class="row"><div class="lbl">Пробники</div>${mockRow}</div><div class="row"><div class="lbl">ДЗ за ${HW_DAYS} дней</div>${hwRow}</div></div>`;
+    return `<div class="sec">${head}${mocks.length?`<div class="row"><div class="lbl">Пробники</div>${mockRow}</div>`:""}<div class="row"><div class="lbl">ДЗ за ${HW_DAYS} дней</div>${hwRow}</div></div>`;
   }).join("");
   return `<div class="card"><h2>Освоение разделов</h2>
-    <div class="sub">% — решаемость в последнем пробнике и в ДЗ за ${HW_DAYS} дней, график — динамика по пробникам</div>
+    <div class="sub">${(d.mocksList||[]).length?`% — решаемость в последнем пробнике и в ДЗ за ${HW_DAYS} дней, график — динамика по пробникам`:`% — решаемость в ДЗ за ${HW_DAYS} дней`}</div>
     <svg width="0" height="0" style="position:absolute"><defs><linearGradient id="ln2" gradientUnits="userSpaceOnUse" x1="0" x2="160" y1="0" y2="0"><stop offset="0" stop-color="#8153EC"/><stop offset="1" stop-color="#C653EC"/></linearGradient></defs></svg>
     <div class="secs">${cards}</div></div>`;
 }
@@ -260,6 +260,7 @@ function render(d){
   const plural=(n,a,b,c)=>{n=Math.abs(n)%100;const n1=n%10;return n>10&&n<20?c:n1>1&&n1<5?b:n1===1?a:c};
   const sign=v=>v===""||v==null?"—":(v>0?"+":"")+v;
   let journalShown=8;
+  const hasM=(d.mocksList||[]).length>0;
   const bal=d.balance===""||d.balance==null?null:Math.round(+d.balance*10)/10;
   const nz=n=>n+" "+plural(n,"занятие","занятия","занятий");
   const payHtml=bal===null||isNaN(bal)?"":bal<0
@@ -288,8 +289,8 @@ function render(d){
     <span class="tag">Цель: ${esc(d.goal)}${ege?" баллов":""}</span>
   </div>
   <div class="kpis">
-    <div class="kpi accent"><b>${m.last===""?"—":m.last}<small>${m.last===""?"":" "+plural(m.last,"балл","балла","баллов")}</small></b><span>последний результат${ege?"":" · оценка "+(m.grade||"—")}</span></div>
-    <div class="kpi"><b>${sign(m.growth)}<small> ${m.growth===""||m.growth==null?"":plural(m.growth,"балл","балла","баллов")}</small></b><span>рост от ${esc(firstMock||"старта")}</span></div>
+    ${hasM?`<div class="kpi accent"><b>${m.last===""?"—":m.last}<small>${m.last===""?"":" "+plural(m.last,"балл","балла","баллов")}</small></b><span>последний результат${ege?"":" · оценка "+(m.grade||"—")}</span></div>
+    <div class="kpi"><b>${sign(m.growth)}<small> ${m.growth===""||m.growth==null?"":plural(m.growth,"балл","балла","баллов")}</small></b><span>рост от ${esc(firstMock||"старта")}</span></div>`:""}
     <div class="kpi"><b>${m.lessons}</b><span>занятий проведено${firstLesson?" с "+esc(firstLesson):""}${m.missed?` · пропусков ${m.missed}`:""}</span></div>
     <div class="kpi"><b>${pct(m.hwAvg)}</b><span>средний % выполнения ДЗ</span></div>
   </div>
@@ -298,15 +299,15 @@ function render(d){
     ${curHw.hwp.note?`<div class="note">${esc(curHw.hwp.note)}</div>`:""}
     ${curHw.hwp.links.length?`<div class="hwbtns">${curHw.hwp.links.map(k=>`<a class="hwbtn" href="${esc(k.url)}" data-link="${esc(k.url)}">${esc(k.label)}</a>`).join("")}</div>`:""}</div>`:""}
   ${d.comment?`<div class="card"><h2>Комментарий преподавателя</h2><div class="comment">${esc(d.comment)}</div></div>`:""}
-  <div class="card chart"><h2>Динамика пробников</h2><div class="sub">${unit} по пробникам</div>${chart(d.mocksList,d.goal,d.exam)}</div>
+  ${hasM?`<div class="card chart"><h2>Динамика пробников</h2><div class="sub">${unit} по пробникам</div>${chart(d.mocksList,d.goal,d.exam)}</div>
   <div class="card"><h2>Пробники</h2>
     <table><tr><th>Дата</th><th class="n">Перв.</th><th class="n">${ege?"Тест.":"Оценка"}</th></tr>
     ${d.mocksList.slice().reverse().map(x=>`<tr><td><b>${esc(x.date)}</b></td><td class="n">${x.primary}</td><td class="n big">${x.result}</td></tr>`).join("")}</table>
-  </div>
+  </div>`:""}
   ${sectionsHtml(d)}
-  <div class="card"><h2>Решаемость по заданиям</h2><div class="sub" id="solvSub">средний % от максимума по последним 3 пробникам</div>
-    <div class="seg"><button class="on" data-s="mocks">Пробники</button><button data-s="hw">Домашние задания</button></div>
-    <div class="tasks" id="solvGrid">${tasks(solvM,d.maxes,d.passed)}</div>
+  <div class="card"><h2>Решаемость по заданиям</h2><div class="sub" id="solvSub">${hasM?"средний % от максимума по последним 3 пробникам":`% верно решённых задач каждого номера в ДЗ за последние ${HW_DAYS} дней`}</div>
+    ${hasM?`<div class="seg"><button class="on" data-s="mocks">Пробники</button><button data-s="hw">Домашние задания</button></div>`:""}
+    <div class="tasks" id="solvGrid">${tasks(hasM?solvM:solvH,d.maxes,d.passed)}</div>
   </div>
   <div class="card"><h2>Журнал занятий</h2><div id="jl">${jHtml(journalShown)}</div>
     ${d.journal.length>journalShown?`<button class="more" id="more">Показать все занятия (${d.journal.length})</button>`:""}</div>
@@ -324,6 +325,17 @@ function render(d){
   $("#login").classList.add("hidden"); $("#app").classList.remove("hidden");
 }
 
+// Вход без кода: Telegram передаёт подписанные данные пользователя, скрипт находит ученика по подписке в боте
+async function loadTg(initData){
+  $("#login").classList.remove("hidden"); $("#err").textContent="Загружаю…";
+  try{
+    const r=await fetch(API_URL+"?tg="+encodeURIComponent(initData)+"&t="+Date.now(),{cache:"no-store"});
+    const d=await r.json();
+    if(d.error){$("#err").textContent="";showLogin();return;}
+    if(d.code) store.set(d.code);
+    render(d);
+  }catch(e){$("#err").textContent="";showLogin();}
+}
 async function load(code){
   $("#err").textContent="Загружаю…";
   try{
@@ -338,7 +350,12 @@ $("#go").onclick=()=>{const c=$("#code").value.trim().toUpperCase(); if(c) load(
 $("#code").addEventListener("keydown",e=>{if(e.key==="Enter")$("#go").click();});
 
 if(!API_URL) render(DEMO);
-else { const saved=store.get(); saved?load(saved):showLogin(); }
+else {
+  const saved=store.get(), initData=tg&&tg.initData;
+  if(saved) load(saved);
+  else if(initData) loadTg(initData);
+  else showLogin();
+}
 </script>
 </body>
 </html>
