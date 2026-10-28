@@ -60,6 +60,11 @@ td.big{font-weight:800;color:var(--main)}
 .foot{text-align:center;color:var(--muted);font-size:12px;margin:18px 0 6px}
 .foot a{color:var(--main)}
 .hidden{display:none}
+.paycard{display:flex;align-items:center;gap:12px;padding:14px 16px}
+.paycard .pv{flex:1;font-weight:800;font-size:16px}
+.paycard .pv span{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:2px}
+.paycard.debt{background:var(--badbg)} .paycard.debt .pv{color:var(--bad)}
+.paycard.ahead .pv{color:var(--ok)}
 .hwcard .info b{display:block;font-size:16px;margin-top:2px}
 .hwcard .note{margin-top:6px;line-height:1.4;white-space:pre-line}
 .hwbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
@@ -102,7 +107,7 @@ td.big{font-weight:800;color:var(--main)}
 const API_URL = "https://script.google.com/macros/s/AKfycbxgfjjYrbaZ7LfYyktqKKAj3m9DP08CpoRSj0-f3KQgoI5ITefxi5DraOTeRkIZvtuUkw/exec";
 
 const DEMO = {
-  name:"Демо Аня", exam:"ЕГЭ", goal:85,
+  name:"Демо Аня", exam:"ЕГЭ", goal:85, balance:-1, payUrl:"https://example.com/pay",
   comment:"Хорошая динамика по неорганике, стабильно сдаёт ДЗ. Подтягиваем органику, дальше переходим к расчётным задачам 33–34.",
   metrics:{lessons:12,missed:1,hwDone:10,hwFail:1,hwRate:0.91,hwAvg:0.78,mocks:5,first:43,last:71,best:71,growth:28,grade:""},
   maxes:[1,1,1,1,1,2,2,2,1,1,1,1,1,2,2,1,1,1,1,1,1,2,2,2,1,1,1,1,2,2,4,5,3,4],
@@ -255,6 +260,12 @@ function render(d){
   const plural=(n,a,b,c)=>{n=Math.abs(n)%100;const n1=n%10;return n>10&&n<20?c:n1>1&&n1<5?b:n1===1?a:c};
   const sign=v=>v===""||v==null?"—":(v>0?"+":"")+v;
   let journalShown=8;
+  const bal=d.balance===""||d.balance==null?null:Math.round(+d.balance*10)/10;
+  const nz=n=>n+" "+plural(n,"занятие","занятия","занятий");
+  const payHtml=bal===null||isNaN(bal)?"":bal<0
+    ?`<div class="card paycard debt"><div class="pv"><span>Оплата</span>Не оплачено ${nz(-bal)}</div>${d.payUrl?`<a class="hwbtn" href="${esc(d.payUrl)}" data-link="${esc(d.payUrl)}">Оплатить</a>`:""}</div>`
+    :bal>0?`<div class="card paycard ahead"><div class="pv"><span>Оплата</span>Оплачено на ${nz(bal)} вперёд</div></div>`
+    :`<div class="card paycard"><div class="pv"><span>Оплата</span>Все занятия оплачены</div></div>`;
   (d.journal||[]).forEach(l=>{l.hwp=parseHw(l.hwText||l.hwLink||"")});
   const curHw=(d.journal||[]).filter(l=>(l.hwp.links.length||l.hwp.note)&&pd(l.date)).sort((a,b)=>pd(b.date)-pd(a.date))[0];
   const last3=(d.mocksList||[]).filter(m=>m.scores).slice(-3);
@@ -282,6 +293,7 @@ function render(d){
     <div class="kpi"><b>${m.lessons}</b><span>занятий проведено${firstLesson?" с "+esc(firstLesson):""}${m.missed?` · пропусков ${m.missed}`:""}</span></div>
     <div class="kpi"><b>${pct(m.hwAvg)}</b><span>средний % выполнения ДЗ</span></div>
   </div>
+  ${payHtml}
   ${curHw?`<div class="card hwcard"><div class="info"><div class="sub">Домашнее задание · ${esc(String(curHw.date).slice(0,5))}</div><b>${esc(curHw.topic||"ДЗ")}</b></div>
     ${curHw.hwp.note?`<div class="note">${esc(curHw.hwp.note)}</div>`:""}
     ${curHw.hwp.links.length?`<div class="hwbtns">${curHw.hwp.links.map(k=>`<a class="hwbtn" href="${esc(k.url)}" data-link="${esc(k.url)}">${esc(k.label)}</a>`).join("")}</div>`:""}</div>`:""}
