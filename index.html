@@ -350,7 +350,7 @@ function renderTeacher(d){
   const ST={soon:["впереди","p-grey"],now:["идёт","p-info"],sent:["ДЗ отправлено","p-ok"],hw_not_sent:["ДЗ не отправлено","p-mid"],no_hw:["нет ДЗ","p-bad"]};
   const row=(x,mid,right)=>`<div class="trow" data-code="${esc(x.code||"")}">${mid}<div class="tx">${right}</div>${x.code?`<span class="arrow">›</span>`:""}</div>`;
   const mem=(x,first,les)=>`<div class="trow mrow" data-code="${esc(x.code||"")}"><div class="tn">${esc(x.name)}${first?`<small>до ${esc(les.end)}${les.members.length>1?" · пара":""}</small>`:""}</div><div class="tx"><span class="pill ${ST[x.state][1]}">${ST[x.state][0]}</span></div>${x.code?`<span class="arrow">›</span>`:""}</div>`;
-  const today=d.today.length?d.today.map(l=>`<div class="lrow"><div class="tm">${esc(l.time)}</div><div class="lmem">${(l.members||[]).map((x,i)=>mem(x,i===0,l)).join("")}</div></div>`).join(""):`<p class="sub" style="margin-top:8px">Уроков по календарю нет</p>`;
+  const today=d.today.length?d.today.map(l=>`<div class="lrow"><div class="tm">${esc(l.time)}</div><div class="lmem">${(l.members||[]).map((x,i,arr)=>mem(x,i===arr.length-1,l)).join("")}</div></div>`).join(""):`<p class="sub" style="margin-top:8px">Уроков по календарю нет</p>`;
   const grp=(title,list,fn)=>list.length?`<div class="th">${title}</div>`+list.map(x=>row(x,`<div class="tn">${esc(x.name)}</div>`,fn(x))).join(""):"";
   const att=grp("ДЗ не отправлено",d.notSent,x=>"от "+x.dates.join(", "))+grp("Не проверено ДЗ",d.pending,x=>"от "+x.dates.join(", "))
     +grp("Ждём оплату",d.debt,x=>`<span class="pill p-bad">${x.n} ${pl(x.n,"занятие","занятия","занятий")}</span>`)
