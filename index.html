@@ -60,6 +60,16 @@ td.big{font-weight:800;color:var(--main)}
 .foot{text-align:center;color:var(--muted);font-size:12px;margin:18px 0 6px}
 .foot a{color:var(--main)}
 .hidden{display:none}
+.th{font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin:14px 0 4px}
+.th:first-of-type{margin-top:8px}
+.trow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.trow:last-child{border:0}
+.trow .tm{min-width:46px;font-weight:800;color:var(--main);font-size:14px}
+.trow .tn{flex:1;font-weight:700}
+.trow .tn small{display:block;font-weight:500;color:var(--muted);font-size:12px;margin-top:1px}
+.trow .tx{font-size:13px;color:var(--muted);text-align:right}
+.trow .arrow{color:#C9BFE0;font-size:18px}
+.back{display:inline-block;margin-bottom:12px;background:#fff;border:0;border-radius:12px;padding:9px 14px;color:var(--main);font-weight:800;font-size:14px;box-shadow:0 2px 10px rgba(129,83,236,.07)}
 .paycard{display:flex;align-items:center;gap:12px;padding:14px 16px}
 .paycard .pv{flex:1;font-weight:800;font-size:16px}
 .paycard .pv span{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:2px}
@@ -93,7 +103,7 @@ td.big{font-weight:800;color:var(--main)}
 <div id="login" class="login hidden">
   <h1>Кабинет ученика</h1>
   <p class="sub" style="margin-top:6px">Введите код, который дал преподаватель</p>
-  <input id="code" maxlength="12" autocomplete="off" placeholder="XXXXXX">
+  <input id="code" maxlength="40" autocomplete="off" placeholder="XXXXXX">
   <button class="btn" id="go">Открыть кабинет</button>
   <div class="err" id="err"></div>
 </div>
@@ -282,7 +292,7 @@ function render(d){
   const firstLesson=jd.length?jd[0].date:"";
   const jHtml=n=>d.journal.slice(0,n).map(l=>`<div class="lesson"><div class="d">${esc(String(l.date).slice(0,5))}</div><div class="tt">${esc(l.topic)}
       ${l.hwp.note?`<div class="jnote">${esc(l.hwp.note)}</div>`:""}${(l.hwPct!==""&&l.hwPct!=null)||l.hwp.links.length?`<div class="pills">${l.hwPct!==""&&l.hwPct!=null?`<span class="pill ${l.hwPct>=0.895?"p-ok":l.hwPct>=0.745?"p-mid":"p-bad"}">ДЗ ${pct(l.hwPct)}</span>`:""}${l.hwp.links.map(k=>`<a class="pill p-link" href="${esc(k.url)}" data-link="${esc(k.url)}">${esc(l.hwp.links.length>1?k.label:"ДЗ")} →</a>`).join("")}</div>`:""}</div></div>`).join("");
-  $("#app").innerHTML=`
+  $("#app").innerHTML=`${TEACHER_VIEW?`<button class="back" id="back">← Все ученики</button>`:""}
   <div class="card head">
     <div class="sub">${esc(d.exam)} · химия</div>
     <h1>${esc(d.name)}</h1>
@@ -320,18 +330,58 @@ function render(d){
   document.getElementById("app").onclick=e=>{const a=e.target.closest("[data-link]");if(!a)return;e.preventDefault();
     const u=a.dataset.link;try{if(tg&&tg.openLink){tg.openLink(u);return;}}catch(_){}window.open(u,"_blank");};
   const mb=$("#more"); if(mb) mb.onclick=()=>{$("#jl").innerHTML=jHtml(999);mb.remove();};
+  const bk=$("#back"); if(bk) bk.onclick=()=>{renderTeacher(TEACHER_VIEW);window.scrollTo(0,0);};
   const rf=$("#refresh"); if(rf) rf.onclick=e=>{e.preventDefault();const c=store.get();if(c)load(c);};
   const lo=$("#logout"); if(lo) lo.onclick=e=>{e.preventDefault();store.del();location.reload();};
   $("#login").classList.add("hidden"); $("#app").classList.remove("hidden");
 }
 
 // Вход без кода: Telegram передаёт подписанные данные пользователя, скрипт находит ученика по подписке в боте
+let TEACHER_VIEW=null;
+const pl=(n,a,b,c)=>{n=Math.abs(n)%100;const k=n%10;return n>10&&n<20?c:k>1&&k<5?b:k===1?a:c};
+function renderTeacher(d){
+  TEACHER_VIEW=d;
+  const ST={soon:["впереди","p-grey"],now:["идёт","p-info"],sent:["ДЗ отправлено","p-ok"],hw_not_sent:["ДЗ не отправлено","p-mid"],no_hw:["нет ДЗ","p-bad"]};
+  const row=(x,mid,right)=>`<div class="trow" data-code="${esc(x.code||"")}">${mid}<div class="tx">${right}</div>${x.code?`<span class="arrow">›</span>`:""}</div>`;
+  const today=d.today.length?d.today.map(x=>row(x,`<div class="tm">${esc(x.time)}</div><div class="tn">${esc(x.name)}<small>до ${esc(x.end)}</small></div>`,`<span class="pill ${ST[x.state][1]}">${ST[x.state][0]}</span>`)).join(""):`<p class="sub" style="margin-top:8px">Уроков по календарю нет</p>`;
+  const grp=(title,list,fn)=>list.length?`<div class="th">${title}</div>`+list.map(x=>row(x,`<div class="tn">${esc(x.name)}</div>`,fn(x))).join(""):"";
+  const att=grp("ДЗ не отправлено",d.notSent,x=>"от "+x.dates.join(", "))+grp("Не проверено ДЗ",d.pending,x=>"от "+x.dates.join(", "))
+    +grp("Ждём оплату",d.debt,x=>`<span class="pill p-bad">${x.n} ${pl(x.n,"занятие","занятия","занятий")}</span>`)
+    +grp("Давно не было пробника",d.mocks,x=>x.weeks+" нед.");
+  const pendN=d.pending.reduce((a,x)=>a+x.dates.length,0), debtN=d.debt.reduce((a,x)=>a+x.n,0);
+  const bal=b=>b===""||b==null?"":b<0?`<span class="pill p-bad">−${-b}</span>`:b>0?`<span class="pill p-ok">+${b}</span>`:`<span class="pill p-grey">0</span>`;
+  const studs=d.students.map(x=>row(x,`<div class="tn">${esc(x.name)}<small>${esc(x.exam)}${x.last!==""?" · последний "+x.last:""}${x.hwAvg!==""?" · ДЗ "+pct(x.hwAvg):""}</small></div>`,bal(x.balance))).join("");
+  $("#app").innerHTML=`
+  <div class="card head"><div class="sub">Кабинет преподавателя</div><h1>Сегодня, ${esc(d.date.slice(0,5))}</h1></div>
+  <div class="kpis">
+    <div class="kpi accent"><b>${d.today.length}</b><span>${pl(d.today.length,"урок","урока","уроков")} сегодня</span></div>
+    <div class="kpi"><b>${pendN}</b><span>не проверено ДЗ</span></div>
+    <div class="kpi"><b>${debtN}</b><span>${pl(debtN,"занятие","занятия","занятий")} ждут оплаты</span></div>
+    <div class="kpi"><b>${d.students.length}</b><span>${pl(d.students.length,"ученик","ученика","учеников")}</span></div>
+  </div>
+  <div class="card"><h2>Уроки сегодня</h2>${today}</div>
+  <div class="card"><h2>Требует внимания</h2>${att||`<p class="sub" style="margin-top:8px">Всё в порядке</p>`}</div>
+  <div class="card"><h2>Все ученики</h2><div class="sub">баланс: + оплачено вперёд, − не оплачено</div>${studs}</div>
+  <div class="foot"><a href="#" id="trefresh">Обновить данные</a> · <a href="#" id="logout">Выйти</a></div>`;
+  $("#app").onclick=e=>{const r=e.target.closest(".trow[data-code]");if(r&&r.dataset.code)openStudent(r.dataset.code);};
+  $("#trefresh").onclick=e=>{e.preventDefault();const c=store.get();if(c)load(c);else if(tg&&tg.initData)loadTg(tg.initData);};
+  $("#logout").onclick=e=>{e.preventDefault();store.del();TEACHER_VIEW=null;showLogin();};
+  $("#login").classList.add("hidden"); $("#app").classList.remove("hidden");
+}
+async function openStudent(code){
+  try{
+    const r=await fetch(API_URL+"?code="+encodeURIComponent(code)+"&t="+Date.now(),{cache:"no-store"});
+    const d=await r.json(); if(d.error) return;
+    $("#app").onclick=null; render(d); window.scrollTo(0,0);
+  }catch(e){}
+}
 async function loadTg(initData){
   $("#login").classList.remove("hidden"); $("#err").textContent="Загружаю…";
   try{
     const r=await fetch(API_URL+"?tg="+encodeURIComponent(initData)+"&t="+Date.now(),{cache:"no-store"});
     const d=await r.json();
     if(d.error){$("#err").textContent="";showLogin();return;}
+    if(d.role==="teacher"){renderTeacher(d);return;}
     if(d.code) store.set(d.code);
     render(d);
   }catch(e){$("#err").textContent="";showLogin();}
@@ -342,7 +392,9 @@ async function load(code){
     const r=await fetch(API_URL+"?code="+encodeURIComponent(code)+"&t="+Date.now(),{cache:"no-store"});
     const d=await r.json();
     if(d.error){$("#err").textContent="Код не найден. Проверьте и попробуйте ещё раз.";store.del();showLogin();return;}
-    store.set(code); render(d);
+    store.set(code);
+    if(d.role==="teacher"){renderTeacher(d);return;}
+    TEACHER_VIEW=null; render(d);
   }catch(e){$("#err").textContent="Не получилось загрузить данные. Попробуйте позже.";showLogin();}
 }
 function showLogin(){$("#app").classList.add("hidden");$("#login").classList.remove("hidden");}
