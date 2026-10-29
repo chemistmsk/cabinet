@@ -60,6 +60,12 @@ td.big{font-weight:800;color:var(--main)}
 .foot{text-align:center;color:var(--muted);font-size:12px;margin:18px 0 6px}
 .foot a{color:var(--main)}
 .hidden{display:none}
+tr.mrow-t{cursor:pointer}
+tr.mrow-t .chev{color:#B9AEDB;font-size:12px;display:inline-block;transition:transform .2s}
+tr.mrow-t.open .chev{transform:rotate(180deg)}
+tr.mrow-t.open td{border-bottom:0}
+tr.mdet td{padding:0 0 12px}
+.mdinfo{font-size:12px;color:var(--muted);margin:2px 0 -2px}
 .th{font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin:14px 0 4px}
 .th:first-of-type{margin-top:8px}
 .trow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
@@ -260,6 +266,14 @@ function sectionsHtml(d){
     <div class="secs">${cards}</div></div>`;
 }
 
+function mockDetail(m,d){
+  if(!m.scores) return "";
+  const cells=m.scores.map((v,i)=>{const mx=d.maxes[i]||1,r=(+v||0)/mx;
+    const c=r>=1?"var(--okbg);color:var(--ok)":r>0?"var(--midbg);color:var(--mid)":"var(--badbg);color:var(--bad)";
+    return `<div class="t" style="background:${c}"><i>№${i+1}</i><b>${+v||0}/${mx}</b></div>`;}).join("");
+  const full=m.scores.filter((v,i)=>(+v||0)>=(d.maxes[i]||1)).length, zero=m.scores.filter(v=>!(+v)).length;
+  return `<div class="mdinfo">${esc(m.title||"")}${m.title?" · ":""}полностью решено ${full} из ${m.scores.length} · не решено ${zero}</div><div class="tasks">${cells}</div>`;
+}
 function tasks(solv,maxes,passed){
   return solv.map((v,i)=>{
     if(passed && !passed.includes(i+1)) return `<div class="t" style="background:#F4F1FA;color:#A39BB5"><i>№${i+1}</i><b style="font-size:11px">не прох.</b></div>`;
@@ -318,7 +332,9 @@ function render(d){
   ${hasM?`<div class="card chart"><h2>Динамика пробников</h2><div class="sub">${unit} по пробникам</div>${chart(d.mocksList,d.goal,d.exam)}</div>
   <div class="card"><h2>Пробники</h2>
     <table><tr><th>Дата</th><th class="n">Перв.</th><th class="n">${ege?"Тест.":"Оценка"}</th></tr>
-    ${d.mocksList.slice().reverse().map(x=>`<tr><td><b>${esc(x.date)}</b></td><td class="n">${x.primary}</td><td class="n big">${x.result}</td></tr>`).join("")}</table>
+    ${d.mocksList.slice().reverse().map((x,k)=>`<tr class="mrow-t" data-m="${k}"><td><b>${esc(x.date)}</b> <span class="chev">▾</span></td><td class="n">${x.primary}</td><td class="n big">${x.result}</td></tr>
+      <tr class="mdet hidden" id="md${k}"><td colspan="3">${mockDetail(x,d)}</td></tr>`).join("")}</table>
+    <div class="sub" style="margin-top:8px">Нажмите на пробник, чтобы увидеть баллы по заданиям</div>
   </div>`:""}
   ${sectionsHtml(d)}
   <div class="card"><h2>Решаемость по заданиям</h2><div class="sub" id="solvSub">${hasM?"средний % от максимума по последним 3 пробникам":`% верно решённых задач каждого номера в ДЗ за последние ${HW_DAYS} дней`}</div>
@@ -335,6 +351,8 @@ function render(d){
     $("#solvSub").textContent=les?`% верно решённых задач каждого номера в ДЗ за последние ${HW_DAYS} дней`:"средний % от максимума по последним 3 пробникам";});
   document.getElementById("app").onclick=e=>{const a=e.target.closest("[data-link]");if(!a)return;e.preventDefault();
     const u=a.dataset.link;try{if(tg&&tg.openLink){tg.openLink(u);return;}}catch(_){}window.open(u,"_blank");};
+  document.querySelectorAll("tr.mrow-t").forEach(tr=>tr.addEventListener("click",()=>{
+    const det=document.getElementById("md"+tr.dataset.m); det.classList.toggle("hidden"); tr.classList.toggle("open");}));
   const mb=$("#more"); if(mb) mb.onclick=()=>{$("#jl").innerHTML=jHtml(999);mb.remove();};
   const bk=$("#back"); if(bk) bk.onclick=()=>{renderTeacher(TEACHER_VIEW);window.scrollTo(0,0);};
   const rf=$("#refresh"); if(rf) rf.onclick=e=>{e.preventDefault();const c=store.get();if(c)load(c);};
