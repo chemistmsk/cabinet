@@ -302,7 +302,7 @@ function render(d){
   <div class="card head">
     <div class="sub">${esc(d.exam)} · химия</div>
     <h1>${esc(d.name)}</h1>
-    <span class="tag">Цель: ${esc(d.goal)}${ege?" баллов":""}</span>
+    ${d.goal!==""&&d.goal!=null&&String(d.goal).trim()!==""?`<span class="tag">Цель: ${esc(d.goal)}${ege&&!isNaN(+d.goal)?" "+plural(+d.goal,"балл","балла","баллов"):""}</span>`:""}
   </div>
   <div class="kpis">
     ${hasM?`<div class="kpi accent"><b>${m.last===""?"—":m.last}<small>${m.last===""?"":" "+plural(m.last,"балл","балла","баллов")}</small></b><span>последний результат${ege?"":" · оценка "+(m.grade||"—")}</span></div>
